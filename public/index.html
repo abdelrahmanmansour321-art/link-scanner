@@ -1,773 +1,434 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Link & File Security Scanner</title>
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            dark: {
-              900: '#0b0f19',
-              800: '#111827',
-              700: '#1f2937',
-              600: '#374151',
-            }
-          }
-        }
-      }
-    }
-  </script>
-</head>
-<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-indigo-500 selection:text-white">
-  
-  <!-- Top Navigation Bar -->
-  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <div class="flex items-center space-x-3">
-        <div class="bg-indigo-600 p-2 rounded-xl text-white shadow-lg shadow-indigo-500/30 flex items-center justify-center">
-          <i data-lucide="shield-alert" class="w-6 h-6"></i>
-        </div>
-        <div>
-          <h1 class="font-bold text-lg tracking-tight text-white flex items-center gap-2">
-            LinkScanner <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 font-medium">Pro</span>
-          </h1>
-          <p class="text-xs text-slate-400">Advanced Threat Intelligence & SSRF-Protected Analysis</p>
-        </div>
-      </div>
-
-      <!-- Backend Status Indicator -->
-      <div class="flex items-center gap-3">
-        <div id="backend-status" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-xs font-medium text-slate-300">
-          <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse" id="status-dot"></span>
-          <span id="status-text">Connecting to backend...</span>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <!-- Main Container -->
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    
-    <!-- Hero / Intro -->
-    <div class="text-center max-w-2xl mx-auto mb-10">
-      <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-3">
-        Inspect URLs & Files for Hidden Threats
-      </h2>
-      <p class="text-slate-400 text-sm sm:text-base">
-        Analyze URLs with local static heuristics, robust SSRF defense, and VirusTotal intelligence. Or scan files instantly up to 5MB.
-      </p>
-    </div>
-
-    <!-- Scanner Type Selector Tabs -->
-    <div class="flex justify-center mb-8">
-      <div class="inline-flex p-1.5 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl">
-        <button id="tab-url" onclick="switchTab('url')" class="flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 bg-indigo-600 text-white shadow-lg shadow-indigo-600/30">
-          <i data-lucide="globe" class="w-4 h-4"></i>
-          URL Scanner
-        </button>
-        <button id="tab-file" onclick="switchTab('file')" class="flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 text-slate-400 hover:text-white">
-          <i data-lucide="file-up" class="w-4 h-4"></i>
-          File Scanner
-        </button>
-        <button id="tab-history" onclick="switchTab('history')" class="flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 text-slate-400 hover:text-white">
-          <i data-lucide="history" class="w-4 h-4"></i>
-          Scan History <span id="history-badge" class="ml-1 px-1.5 py-0.2 text-[10px] bg-slate-800 text-slate-300 rounded-full">0</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- URL Scanner Section -->
-    <section id="section-url" class="max-w-3xl mx-auto transition-all duration-300">
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
-        <div class="absolute -right-16 -top-16 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
-        <form id="url-form" onsubmit="handleUrlSubmit(event)" class="space-y-4">
-          <div>
-            <label for="url-input" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Target URL</label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500">
-                <i data-lucide="link" class="w-5 h-5"></i>
-              </div>
-              <input 
-                type="url" 
-                id="url-input" 
-                required 
-                placeholder="https://example.com/path?query=1" 
-                class="w-full pl-12 pr-4 py-3.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-sm transition-all"
-              >
-            </div>
-          </div>
-
-          <!-- Quick Examples -->
-          <div class="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-            <span class="font-medium text-slate-500">Try examples:</span>
-            <button type="button" onclick="setSampleUrl('https://www.google.com')" class="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-800 text-slate-300 border border-slate-700/50 transition">Google (Safe)</button>
-            <button type="button" onclick="setSampleUrl('http://127.0.0.1/admin')" class="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-800 text-slate-300 border border-slate-700/50 transition">Localhost (SSRF Block)</button>
-            <button type="button" onclick="setSampleUrl('https://bit.ly/3xyzExample')" class="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-800 text-slate-300 border border-slate-700/50 transition">Shortener</button>
-          </div>
-
-          <button 
-            type="submit" 
-            id="url-submit-btn"
-            class="w-full mt-2 py-3.5 px-6 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 group"
-          >
-            <i data-lucide="search" class="w-4 h-4 group-hover:scale-110 transition-transform"></i>
-            <span>Scan URL for Threats</span>
-          </button>
-        </form>
-      </div>
-    </section>
-
-    <!-- File Scanner Section -->
-    <section id="section-file" class="max-w-3xl mx-auto hidden transition-all duration-300">
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
-        <div class="absolute -left-16 -bottom-16 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
-        <form id="file-form" onsubmit="handleFileSubmit(event)" class="space-y-4">
-          <div>
-            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Upload File (Max 5MB)</label>
-            
-            <!-- Dropzone -->
-            <div 
-              id="dropzone" 
-              class="border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-xl p-8 text-center cursor-pointer bg-slate-950/50 hover:bg-slate-950 transition-all group"
-              onclick="document.getElementById('file-input').click()"
-              ondragover="handleDragOver(event)"
-              ondragleave="handleDragLeave(event)"
-              ondrop="handleFileDrop(event)"
-            >
-              <input type="file" id="file-input" class="hidden" onchange="handleFileSelect(this)">
-              <div class="w-12 h-12 rounded-full bg-slate-800 group-hover:bg-indigo-600/20 text-slate-400 group-hover:text-indigo-400 flex items-center justify-center mx-auto mb-3 transition-colors">
-                <i data-lucide="upload-cloud" class="w-6 h-6"></i>
-              </div>
-              <p class="text-sm font-medium text-slate-200 mb-1" id="dropzone-title">Click to upload or drag & drop</p>
-              <p class="text-xs text-slate-400">Any file up to 5MB (analyzed via VirusTotal SHA-256)</p>
-            </div>
-          </div>
-
-          <button 
-            type="submit" 
-            id="file-submit-btn"
-            disabled
-            class="w-full mt-2 py-3.5 px-6 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-600 disabled:cursor-not-allowed text-white font-medium rounded-xl shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 group"
-          >
-            <i data-lucide="shield-check" class="w-4 h-4"></i>
-            <span>Scan Uploaded File</span>
-          </button>
-        </form>
-      </div>
-    </section>
-
-    <!-- Scan History Section -->
-    <section id="section-history" class="max-w-4xl mx-auto hidden transition-all duration-300">
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl">
-        <div class="flex items-center justify-between mb-6">
-          <h3 class="text-lg font-bold text-white flex items-center gap-2">
-            <i data-lucide="history" class="w-5 h-5 text-indigo-400"></i>
-            Recent Scan History
-          </h3>
-          <button onclick="clearHistory()" class="text-xs text-slate-400 hover:text-red-400 transition flex items-center gap-1">
-            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Clear History
-          </button>
-        </div>
-
-        <div id="history-list" class="space-y-3">
-          <!-- Populated via JS -->
-        </div>
-      </div>
-    </section>
-
-    <!-- Loading Spinner Overlay / Status -->
-    <div id="loading-state" class="hidden max-w-xl mx-auto my-12 text-center">
-      <div class="inline-block relative w-16 h-16 mb-4">
-        <div class="absolute inset-0 rounded-full border-4 border-indigo-500/20 border-t-indigo-500 animate-spin"></div>
-        <div class="absolute inset-3 rounded-full border-4 border-purple-500/20 border-b-purple-500 animate-spin" style="animation-direction: reverse; animation-duration: 1.5s;"></div>
-      </div>
-      <h3 class="text-lg font-bold text-white mb-1" id="loading-title">Analyzing Target...</h3>
-      <p class="text-xs text-slate-400" id="loading-subtitle">Running SSRF checks, static heuristics, and VirusTotal lookups...</p>
-    </div>
-
-    <!-- Error Banner -->
-    <div id="error-banner" class="hidden max-w-2xl mx-auto my-8 p-4 bg-red-950/50 border border-red-800/80 rounded-xl text-red-200 flex items-start gap-3 shadow-xl">
-      <i data-lucide="alert-octagon" class="w-5 h-5 text-red-400 shrink-0 mt-0.5"></i>
-      <div>
-        <h4 class="font-bold text-sm" id="error-code">SCAN_ERROR</h4>
-        <p class="text-xs text-red-300 mt-0.5" id="error-message">An unexpected error occurred.</p>
-      </div>
-    </div>
-
-    <!-- Results Display Container -->
-    <div id="results-container" class="hidden max-w-5xl mx-auto mt-8 space-y-6">
-      
-      <!-- Summary Card -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
-        <div id="verdict-glow" class="absolute -right-20 -top-20 w-64 h-64 rounded-full blur-3xl pointer-events-none opacity-20"></div>
-
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 pb-6 border-b border-slate-800">
-          <div>
-            <div class="flex items-center gap-3 mb-2">
-              <span id="result-badge" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">LOW RISK</span>
-              <span class="text-xs text-slate-400 font-mono" id="result-scanid">scan_id</span>
-            </div>
-            <h3 class="text-xl sm:text-2xl font-black text-white tracking-tight break-all" id="result-target">https://example.com</h3>
-            <p class="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
-              <i data-lucide="clock" class="w-3.5 h-3.5"></i> Scanned at <span id="result-timestamp">--</span>
-            </p>
-          </div>
-
-          <!-- Risk Score Gauge / Badge -->
-          <div class="flex items-center gap-4 bg-slate-950/60 border border-slate-800/80 px-5 py-3 rounded-2xl">
-            <div class="text-center">
-              <div class="text-3xl sm:text-4xl font-black font-mono tracking-tight" id="result-score">0</div>
-              <div class="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Risk Score</div>
-            </div>
-            <div class="w-px h-10 bg-slate-800"></div>
-            <div>
-              <div class="text-sm font-bold text-white" id="result-verdict">Likely Safe</div>
-              <div class="text-xs text-slate-400" id="result-level-desc">No major threats</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Action Buttons Bar -->
-        <div class="flex items-center justify-between pt-4">
-          <div class="text-xs text-slate-400 flex items-center gap-2">
-            <i data-lucide="shield" class="w-4 h-4 text-indigo-400"></i>
-            Analysis completed successfully
-          </div>
-          <div class="flex items-center gap-2">
-            <button onclick="copyResultsJson()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium flex items-center gap-1.5 transition">
-              <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy JSON
-            </button>
-            <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium flex items-center gap-1.5 transition">
-              <i data-lucide="arrow-up" class="w-3.5 h-3.5"></i> Top
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Grid Details: Findings & Threat Breakdown -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        <!-- Findings Column (2 spans) -->
-        <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-          <h4 class="font-bold text-white text-base flex items-center gap-2">
-            <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-400"></i>
-            Security Findings & Signals (<span id="findings-count">0</span>)
-          </h4>
-          <div id="findings-list" class="space-y-3">
-            <!-- Populated via JS -->
-          </div>
-        </div>
-
-        <!-- Engines Column (1 span) -->
-        <div class="space-y-6">
-          
-          <!-- Threat Engine Card -->
-          <div id="threat-engine-card" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-            <h4 class="font-bold text-white text-sm flex items-center gap-2">
-              <i data-lucide="cpu" class="w-5 h-5 text-indigo-400"></i>
-              Local Threat Engine
-            </h4>
-            <div class="space-y-2 text-xs">
-              <div class="flex justify-between py-1 border-b border-slate-800">
-                <span class="text-slate-400">Classification</span>
-                <span class="font-bold text-white uppercase" id="te-classification">--</span>
-              </div>
-              <div class="flex justify-between py-1 border-b border-slate-800">
-                <span class="text-slate-400">Engine Score</span>
-                <span class="font-mono font-bold text-white" id="te-score">--</span>
-              </div>
-              <div class="flex justify-between py-1">
-                <span class="text-slate-400">Signals Detected</span>
-                <span class="font-mono font-bold text-white" id="te-signals">--</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- VirusTotal Card -->
-          <div id="vt-card" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-            <div class="flex items-center justify-between">
-              <h4 class="font-bold text-white text-sm flex items-center gap-2">
-                <i data-lucide="globe" class="w-5 h-5 text-blue-400"></i>
-                VirusTotal Reputation
-              </h4>
-              <span id="vt-status-badge" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-800 text-slate-300">Unavailable</span>
-            </div>
-            <div id="vt-content" class="space-y-2 text-xs">
-              <p class="text-slate-400">VirusTotal checks were not performed or key is unconfigured.</p>
-            </div>
-          </div>
-
-        </div>
-
-      </div>
-
-      <!-- URL Analysis & Recommendations Grid -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        <!-- URL Analysis Features (Only for URLs) -->
-        <div id="url-analysis-card" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-          <h4 class="font-bold text-white text-base flex items-center gap-2">
-            <i data-lucide="compass" class="w-5 h-5 text-purple-400"></i>
-            URL Structural Analysis
-          </h4>
-          <div id="url-features-list" class="grid grid-cols-2 gap-3 text-xs">
-            <!-- Populated via JS -->
-          </div>
-        </div>
-
-        <!-- Recommendations Card -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-          <h4 class="font-bold text-white text-base flex items-center gap-2">
-            <i data-lucide="shield-check" class="w-5 h-5 text-emerald-400"></i>
-            Security Recommendations
-          </h4>
-          <ul id="recommendations-list" class="space-y-2 text-xs text-slate-300">
-            <!-- Populated via JS -->
-          </ul>
-        </div>
-
-      </div>
-
-    </div>
-
-  </main>
-
-  <!-- Footer -->
-  <footer class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-12 border-t border-slate-800/80 text-center text-xs text-slate-500">
-    <p>LinkScanner Pro &bull; SSRF-Protected Security Backend & VirusTotal Integration</p>
-  </footer>
-
-  <!-- Frontend Logic -->
-  <script>
-    // Initialize Lucide icons
-    lucide.createIcons();
-
-    // Check backend health on load
-    async function checkBackendHealth() {
-      const dot = document.getElementById('status-dot');
-      const text = document.getElementById('status-text');
-      try {
-        const res = await fetch('/health');
-        const data = await res.json();
-        if (data.success && data.status === 'ok') {
-          dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
-          text.textContent = data.virusTotalConfigured ? 'Backend Online (VT Active)' : 'Backend Online (VT Unconfigured)';
-        } else {
-          throw new Error();
-        }
-      } catch (err) {
-        dot.className = 'w-2 h-2 rounded-full bg-red-500';
-        text.textContent = 'Backend Offline';
-      }
-    }
-    checkBackendHealth();
-
-    // Tab Switching
-    function switchTab(tab) {
-      const urlSec = document.getElementById('section-url');
-      const fileSec = document.getElementById('section-file');
-      const historySec = document.getElementById('section-history');
-      const tabUrl = document.getElementById('tab-url');
-      const tabFile = document.getElementById('tab-file');
-      const tabHistory = document.getElementById('tab-history');
-
-      urlSec.classList.add('hidden');
-      fileSec.classList.add('hidden');
-      historySec.classList.add('hidden');
-
-      tabUrl.className = 'flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 text-slate-400 hover:text-white';
-      tabFile.className = 'flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 text-slate-400 hover:text-white';
-      tabHistory.className = 'flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 text-slate-400 hover:text-white';
-
-      if (tab === 'url') {
-        urlSec.classList.remove('hidden');
-        tabUrl.className = 'flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 bg-indigo-600 text-white shadow-lg shadow-indigo-600/30';
-      } else if (tab === 'file') {
-        fileSec.classList.remove('hidden');
-        tabFile.className = 'flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 bg-indigo-600 text-white shadow-lg shadow-indigo-600/30';
-      } else if (tab === 'history') {
-        historySec.classList.remove('hidden');
-        tabHistory.className = 'flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 bg-indigo-600 text-white shadow-lg shadow-indigo-600/30';
-        renderHistory();
-      }
-    }
-
-    function setSampleUrl(url) {
-      document.getElementById('url-input').value = url;
-    }
-
-    // File Drag & Drop handlers
-    let selectedFile = null;
-
-    function handleDragOver(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      document.getElementById('dropzone').classList.add('border-indigo-500', 'bg-indigo-950/20');
-    }
-
-    function handleDragLeave(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      document.getElementById('dropzone').classList.remove('border-indigo-500', 'bg-indigo-950/20');
-    }
-
-    function handleFileDrop(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      document.getElementById('dropzone').classList.remove('border-indigo-500', 'bg-indigo-950/20');
-      const files = e.dataTransfer.files;
-      if (files.length > 0) {
-        setFile(files[0]);
-      }
-    }
-
-    function handleFileSelect(input) {
-      if (input.files.length > 0) {
-        setFile(input.files[0]);
-      }
-    }
-
-    function setFile(file) {
-      if (file.size > 5 * 1024 * 1024) {
-        showError('FILE_TOO_LARGE', 'File size exceeds 5MB limit.');
-        return;
-      }
-      selectedFile = file;
-      document.getElementById('dropzone-title').textContent = `Selected: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
-      document.getElementById('file-submit-btn').removeAttribute('disabled');
-    }
-
-    // History management in localStorage
-    function saveToHistory(resultData, type) {
-      let history = JSON.parse(localStorage.getItem('scan_history') || '[]');
-      history.unshift({
-        id: resultData.scanId,
-        type,
-        target: resultData.url || resultData.filename,
-        riskScore: resultData.riskScore,
-        riskLevel: resultData.riskLevel,
-        scannedAt: resultData.scannedAt,
-        raw: resultData
-      });
-      if (history.length > 20) history = history.slice(0, 20);
-      localStorage.setItem('scan_history', JSON.stringify(history));
-      updateHistoryBadge();
-    }
-
-    function updateHistoryBadge() {
-      const history = JSON.parse(localStorage.getItem('scan_history') || '[]');
-      document.getElementById('history-badge').textContent = history.length;
-    }
-    updateHistoryBadge();
-
-    function renderHistory() {
-      const list = document.getElementById('history-list');
-      const history = JSON.parse(localStorage.getItem('scan_history') || '[]');
-      if (history.length === 0) {
-        list.innerHTML = `<p class="text-sm text-slate-500 text-center py-6">No scan history found. Run a URL or file scan to see records here.</p>`;
-        return;
-      }
-
-      list.innerHTML = history.map(item => {
-        const badgeColor = getRiskBadgeColor(item.riskLevel);
-        return `
-          <div class="flex items-center justify-between p-4 bg-slate-950/60 border border-slate-800 rounded-xl hover:border-slate-700 transition">
-            <div class="flex items-center gap-3 truncate">
-              <span class="px-2.5 py-1 rounded-full text-xs font-bold uppercase ${badgeColor}">${item.riskLevel}</span>
-              <div class="truncate">
-                <p class="text-sm font-medium text-white truncate">${escapeHtml(item.target)}</p>
-                <p class="text-xs text-slate-400">${new Date(item.scannedAt).toLocaleString()} &bull; <span class="uppercase">${item.type}</span></p>
-              </div>
-            </div>
-            <div class="flex items-center gap-3 shrink-0">
-              <span class="text-sm font-mono font-bold text-white">Score: ${item.riskScore}</span>
-              <button onclick='loadResultFromHistory(${JSON.stringify(item.raw).replace(/'/g, "&#39;")})' class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition">
-                View
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="style.css">
+            <title>LINK SCANNER</title>
+    </head>
+    <body>
+        <div class="page-wrap">
+          <header class="site-header">
+              <button class="brand" data-nav="home">
+                  <span class="brand-mark">
+                       <svg class="icon" viewBox="0 0 24 24"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5l8-3z"/><path d="m9 12 2 2 4-4"/></svg>
+                  </span>
+                  LINK SCANNER
               </button>
-            </div>
-          </div>
-        `;
-      }).join('');
-      lucide.createIcons();
-    }
+              <nav class="main-nav">
+                 <button data-nav="home" >Home</button>
+                 <button data-nav="url">URL</button>
+                 <button data-nav="files">Files</button>
+              </nav>
+             <div class="header-right">
+    <div class="header-links">
+        <button data-nav="about">About</button>
+        <button data-nav="contact">Contact</button>
+    </div>
 
-    function loadResultFromHistory(data) {
-      switchTab('url'); // switch to view results
-      displayResults(data, data.url ? 'url' : 'file');
-      document.getElementById('results-container').scrollIntoView({ behavior: 'smooth' });
-    }
+    <div class="profile-menu">
+        <button class="profile-btn" id="profileBtn" type="button">
+            <svg class="icon" viewBox="0 0 24 24">
+                <circle cx="12" cy="8" r="4"/>
+                <path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/>
+            </svg>
+        </button>
 
-    function clearHistory() {
-      localStorage.removeItem('scan_history');
-      updateHistoryBadge();
-      renderHistory();
-    }
+        <div class="profile-dropdown" id="profileDropdown">
+            <button data-nav="register">Create an account</button>
+            <button data-nav="login">Sign in</button>
+        </div>
+    </div>
 
-    function escapeHtml(str) {
-      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-    }
-
-    // Submit URL Handler
-    async function handleUrlSubmit(e) {
-      e.preventDefault();
-      const url = document.getElementById('url-input').value.trim();
-      if (!url) return;
-
-      hideError();
-      showLoading('Analyzing URL...', 'Running SSRF defense checks, static heuristics, and VirusTotal reputation lookup...');
-
-      try {
-        const res = await fetch('/api/scan', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url })
-        });
-        const json = await res.json();
-
-        hideLoading();
-
-        if (!json.success) {
-          showError(json.error?.code || 'SCAN_FAILED', json.error?.message || 'An error occurred during scan.');
-          return;
-        }
-
-        displayResults(json.data, 'url');
-        saveToHistory(json.data, 'url');
-      } catch (err) {
-        hideLoading();
-        showError('NETWORK_ERROR', 'Could not reach the backend server.');
-      }
-    }
-
-    // Submit File Handler
-    async function handleFileSubmit(e) {
-      e.preventDefault();
-      if (!selectedFile) return;
-
-      hideError();
-      showLoading('Analyzing File...', 'Computing SHA-256 hash and querying VirusTotal intelligence...');
-
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-
-      try {
-        const res = await fetch('/api/scan/file', {
-          method: 'POST',
-          body: formData
-        });
-        const json = await res.json();
-
-        hideLoading();
-
-        if (!json.success) {
-          showError(json.error?.code || 'SCAN_FAILED', json.error?.message || 'An error occurred during file scan.');
-          return;
-        }
-
-        displayResults(json.data, 'file');
-        saveToHistory(json.data, 'file');
-      } catch (err) {
-        hideLoading();
-        showError('NETWORK_ERROR', 'Could not reach the backend server.');
-      }
-    }
-
-    function showLoading(title, subtitle) {
-      document.getElementById('loading-title').textContent = title;
-      document.getElementById('loading-subtitle').textContent = subtitle;
-      document.getElementById('loading-state').classList.remove('hidden');
-      document.getElementById('results-container').classList.add('hidden');
-    }
-
-    function hideLoading() {
-      document.getElementById('loading-state').classList.add('hidden');
-    }
-
-    function showError(code, message) {
-      document.getElementById('error-code').textContent = code;
-      document.getElementById('error-message').textContent = message;
-      document.getElementById('error-banner').classList.remove('hidden');
-    }
-
-    function hideError() {
-      document.getElementById('error-banner').classList.add('hidden');
-    }
-
-    function getRiskBadgeColor(level) {
-      switch (level) {
-        case 'CRITICAL': return 'bg-red-500/20 text-red-400 border border-red-500/30';
-        case 'HIGH': return 'bg-orange-500/20 text-orange-400 border border-orange-500/30';
-        case 'MEDIUM': return 'bg-amber-500/20 text-amber-400 border border-amber-500/30';
-        default: return 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
-      }
-    }
-
-    let currentResultData = null;
-
-    function displayResults(data, type) {
-      currentResultData = data;
-      const container = document.getElementById('results-container');
-      container.classList.remove('hidden');
-
-      // Header info
-      document.getElementById('result-badge').textContent = data.riskLevel;
-      document.getElementById('result-badge').className = `px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${getRiskBadgeColor(data.riskLevel)}`;
-      document.getElementById('result-scanid').textContent = data.scanId;
-      document.getElementById('result-target').textContent = data.url || data.filename;
-      document.getElementById('result-timestamp').textContent = new Date(data.scannedAt).toLocaleTimeString();
-
-      // Score gauge
-      document.getElementById('result-score').textContent = data.riskScore;
-      document.getElementById('result-score').className = `text-3xl sm:text-4xl font-black font-mono tracking-tight ${getScoreTextColor(data.riskScore)}`;
-      document.getElementById('result-verdict').textContent = data.verdict;
-      document.getElementById('result-level-desc').textContent = `Risk Level: ${data.riskLevel}`;
-
-      // Findings
-      const findingsList = document.getElementById('findings-list');
-      document.getElementById('findings-count').textContent = data.findings.length;
-      if (data.findings.length === 0) {
-        findingsList.innerHTML = `<p class="text-xs text-slate-400 py-2">No suspicious findings or anomalies detected.</p>`;
-      } else {
-        findingsList.innerHTML = data.findings.map(f => {
-          const sevColor = getSeverityColor(f.severity);
-          return `
-            <div class="p-3 bg-slate-950/60 border border-slate-800 rounded-xl flex items-start gap-3">
-              <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 ${sevColor}">${f.severity}</span>
-              <div>
-                <span class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">${f.category}</span>
-                <p class="text-xs text-slate-200 mt-0.5">${escapeHtml(f.message)}</p>
+    <button class="mobile-menu-btn" id="mobileMenuBtn" type="button">
+        ☰
+    </button>
+</div>
               </div>
+       </header>
+
+<div class="mobile-menu" id="mobileMenu">
+    <button data-nav="home">Home</button>
+    <button data-nav="url">URL</button>
+    <button data-nav="files">Files</button>
+    <button data-nav="about">About</button>
+    <button data-nav="contact">Contact</button>
+</div>
+
+</div>
+        <!--___________________home __________________ -->
+       <section class="page" id="page-home">
+           <main class="hero">
+               <div class="hero-mark">
+                   <svg class="icon" viewBox="0 0 24 24"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5l8-3z"/><circle cx="11" cy="10" r="3.2"/><path d="m13.2 12.2 3 3"/></svg>
+               </div>
+               <h1 class="hero-title" >LINK <span>SCANNER</span></h1>
+               <p class="hero-subtitle">Detect malware and security threats in files, URLs, domains, and IPs.</p>
+               <div class="hero-tabs">
+                   <button class="hero-tab active" data-nav="url" type="button">
+                          <svg class="icon" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07l1.49-1.49"/></svg>URL
+                   </button>
+                   <button class="hero-tab" data-nav="files" type="button">
+                         <svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>Files
+                   </button>
+               </div>
+               <div class="feature-grid">
+                   <div class="card feature-card">
+                       <span class="feature-icon">
+                           <svg class="icon" viewBox="0 0 24 24"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5l8-3z"/></svg>
+                       </span>
+                       <div>
+                       <h3>Quick Detection</h3>
+                       <p>
+                            Detect threats in seconds.
+                       </p>
+                       </div>
+                   </div>
+                   <div class="card feature-card">
+                       <span class="feature-icon">
+                           <svg class="icon" viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><path d="M2 21v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1"/><circle cx="18" cy="8" r="2.5"/><path d="M16.5 14.5c2.5 0 4.5 2 4.5 4.5v2"/></svg>
+                       </span>
+                       <div>
+                       <h3>Threat Security</h3>
+                       <p>
+                            Protection from online threats.
+                       </p>
+                       </div>
+                   </div>
+                   <div class="card feature-card">
+                       <span class="feature-icon">
+                 <svg class="icon" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>         
+                       </span>
+                       <div>
+                       <h3>Data Privacy</h3>
+                       <p>
+                           Keep your data secure.
+                       </p>
+                       </div>
+                   </div>
+               </div>
+           </main>
+       </section>
+       <!-- ______________________URL Page____________________________ -->
+       <section class="page" id="page-url">
+          <main class="grow">
+              <div class="section-head">
+                  <div class="head-icon">
+                  <svg class="icon" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07l1.49-1.49"/></svg></div>
+                  <h2>Check a URL</h2>
+                  <p>Check if a URL is safe or suspicious </p>
+              </div>
+              <form class="scan-bar" id="urlForm">
+                  <input type="text" placeholder="https://www.example.com" id="urlInput">
+                      <button class="btn btn-primary" type="submit">
+                          Scan
+                          <svg class="icon" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
+                      </button>
+              
+              </form>
+                      <section class="card result-banner" id="resultBanner" hidden>
+                           <div class="result-left">
+                               <span class="result-check"> <svg class="icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>
+                               <div>
+                               <h3 id="resultTitle"></h3>
+                               <div id="resultMessage"></div>
+                               </div>
+                           </div>
+                       </section>
+          </main>
+       </section>
+       <!-----------------------files------------------------->
+      <section class="page" id="page-files">
+          <main class="grow">
+              <div class="section-head">
+                  <div class="head-icon">
+                      <svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+                  </div>
+                  <h2>Check a file</h2>
+                  <p>Detect malware and security threats</p>
+              </div>
+               <div class="card dropzone" id="dropzone">
+                   <input type="file" id="fileInput" hidden>
+                    <span class="dropzone-icon">
+                        <svg class="icon" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg>
+                    </span>
+                    <h3>Select a file to scan</h3>
+                    <button class="btn btn-primary" id="chooseBtn"type="button">
+                        Choose a file
+                    </button>
+                    <p class="dropzone-hint">
+                        Supported files: EXE, DLL, PDF, DOC, ZIP<br>Max size: 10 MB
+                    </p>
+                   
+               </div>
+               <section class="card result-banner" id="fileResultBanner" hidden style="margin-top: 20px; padding: 20px;">
+                    <div class="result-left" style="width: 100%;">
+                        <div>
+                        <h3 id="fileResultTitle"></h3>
+                        <div id="fileResultMessage"></div>
+                        </div>
+                    </div>
+               </section>
+          </main>
+      </section>
+       <!-- _______________________about__________________________ -->
+       <section class="page" id="page-about">
+           <main class="grow about-main">
+               <div class="about-container">
+                   <div class="about-header">
+                       <div class="about-eyebrow">
+                           <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                           <h2>About Link Scanner</h2>
+                       </div>
+                       <p class="about-lead">
+                           Link Scanner helps users check URLs and files for potential security threats before interacting with them. It combines several trusted scanning sources with an internal analysis engine to make security checks simple, fast, and easy to understand.
+                       </p>
+                   </div>
+
+                   <div class="tech-section">
+                       <h3>Technologies Used</h3>
+                       <div class="tech-grid">
+                           <div class="card tech-card">
+                               <h4>VirusTotal</h4>
+                               <p>Scans URLs and files against more than 70 antivirus engines and security vendors at once, to quickly detect known threats.</p>
+                           </div>
+                           <div class="card tech-card">
+                               <h4>WHOIS</h4>
+                               <p>Looks up domain registration data such as creation date and registrant information, to help assess how trustworthy and established a link is.</p>
+                           </div>
+                           <div class="card tech-card">
+                               <h4>abuse.ch</h4>
+                               <p>Cross-checks URLs and files against global databases of known malware and malicious infrastructure (malware/botnet tracking).</p>
+                           </div>
+                           <div class="card tech-card">
+                               <h4>Local Threat Engine</h4>
+                               <p>An internal analysis engine that runs additional custom checks and rules to improve result accuracy before compiling everything into a final report.</p>
+                           </div>
+                       </div>
+                   </div>
+
+                   <div class="team-section">
+                       <h3>Our Team</h3>
+                       <div class="team-grid">
+                           <div class="card team-card">
+                               <div class="team-avatar">AM</div>
+                               <span>Abdelrahman Mohamed</span>
+                           </div>
+                           <div class="card team-card">
+                               <div class="team-avatar">MM</div>
+                               <span>Menna Tallah Mohamed</span>
+                           </div>
+                           <div class="card team-card">
+                               <div class="team-avatar">DM</div>
+                               <span>Dena Mohamed</span>
+                           </div>
+                           <div class="card team-card">
+                               <div class="team-avatar">YA</div>
+                               <span>Yassin Ahmad</span>
+                           </div>
+                       </div>
+                   </div>
+               </div>
+           </main>
+       </section>
+      <!-- _______________________ contact________________________ -->
+      <section class="page" id="page-contact">
+          <main class="grow">
+              <div class="section-head">
+                  <div class="head-icon">
+                      <svg class="icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>
+                  </div>
+                  <h2>Contact Us</h2>
+                  <p>Have a question? Send us a message</p>
+              </div>
+              <div class="contact-grid">
+                  <form class="card contact-form" id="contactForm">
+                      <div class="form-row">
+                          <div class="field">
+                              <label for="name">
+                                  Your Name
+                              </label>
+                              <input type="text" placeholder="Enter your name" id="name" required>
+                          </div>
+                          <div class="field">
+                              <label for="email">
+                                  Your Email
+                              </label>
+                              <input id="email" type="email"placeholder="Enter your email" required>
+                      </div></div>
+                  <div class="field">
+                           <label for="message">
+                                  Message
+                              </label>
+                              <textarea id="message" placeholder="Your message..." required rows="5"></textarea>
+                      </div>
+                      <button type="submit"class="btn btn-primary btn-block">
+                          <svg class="icon" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4 20-7z"/></svg> Send Message
+                      </button>
+                      <p class="form-status" id="formStatus" hidden> </p>
+                      </form>
+                     
+                     
+                  <div class="card contact-info">
+            <span class="info-icon"><svg class="icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg></span>
+            <h3>Email Us </h3>
+            <a href="mailto:linkscannr@gmail.com">linkscannr@gmail.com</a>
+                  </div>
+              </div>
+          </main>
+      </section>
+      <section class="page" id="page-login">
+    <main class="auth-page">
+
+        <div class="auth-card">
+
+            <div class="auth-brand">
+                <span class="auth-logo">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5l8-3z"/>
+                        <path d="m9 12 2 2 4-4"/>
+                    </svg>
+                </span>
+                LINK SCANNER
             </div>
-          `;
-        }).join('');
-      }
 
-      // Threat Engine Card
-      const teCard = document.getElementById('threat-engine-card');
-      if (data.threatEngine) {
-        teCard.classList.remove('hidden');
-        document.getElementById('te-classification').textContent = data.threatEngine.classification;
-        document.getElementById('te-score').textContent = data.threatEngine.score;
-        document.getElementById('te-signals').textContent = data.threatEngine.signalsDetected;
-      } else {
-        teCard.classList.add('hidden');
-      }
-
-      // VirusTotal Card
-      const vt = data.virusTotal;
-      const vtContent = document.getElementById('vt-content');
-      const vtStatusBadge = document.getElementById('vt-status-badge');
-
-      if (!vt || vt.available === false) {
-        vtStatusBadge.textContent = vt?.status || 'Unavailable';
-        vtStatusBadge.className = 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30';
-        vtContent.innerHTML = `<p class="text-xs text-slate-400">${escapeHtml(vt?.message || 'VirusTotal reputation data was unavailable.')}</p>`;
-      } else {
-        vtStatusBadge.textContent = vt.verdict || 'Completed';
-        vtStatusBadge.className = `px-2 py-0.5 rounded text-[10px] font-bold uppercase ${vt.malicious > 0 ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}`;
-        vtContent.innerHTML = `
-          <div class="space-y-2">
-            <div class="flex justify-between py-1 border-b border-slate-800">
-              <span class="text-slate-400">Malicious Engines</span>
-              <span class="font-mono font-bold text-red-400">${vt.malicious}</span>
+            <div class="auth-heading">
+                <h2>Welcome back</h2>
+                <p>Sign in to continue to your account</p>
             </div>
-            <div class="flex justify-between py-1 border-b border-slate-800">
-              <span class="text-slate-400">Suspicious Engines</span>
-              <span class="font-mono font-bold text-amber-400">${vt.suspicious}</span>
+
+            <form class="auth-form" id="loginForm">
+
+                <div class="field">
+                    <label for="loginEmail">Email</label>
+                    <input
+                        type="email"
+                        id="loginEmail"
+                        placeholder="Enter your email"
+                        required
+                    >
+                </div>
+
+                <div class="field">
+                    <label for="loginPassword">Password</label>
+                    <input
+                        type="password"
+                        id="loginPassword"
+                        placeholder="Enter your password"
+                        required
+                    >
+                </div>
+
+                <div class="auth-options">
+                    <label class="remember-me">
+                        <input type="checkbox">
+                        <span>Remember me</span>
+                    </label>
+
+                    <button type="button" class="text-btn">
+                        Forgot password?
+                    </button>
+                </div>
+
+                <button class="btn btn-primary btn-block" type="submit">
+                    Sign in
+                </button>
+
+                <p class="auth-switch">
+                    Don't have an account?
+                    <button type="button" data-nav="register">
+                        Create account
+                    </button>
+                </p>
+
+                <p class="auth-status" id="loginStatus" hidden></p>
+
+            </form>
+
+        </div>
+
+    </main>
+</section><section class="page" id="page-register">
+    <main class="auth-page">
+
+        <div class="auth-card">
+
+            <div class="auth-brand">
+                <span class="auth-logo">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5l8-3z"/>
+                        <path d="m9 12 2 2 4-4"/>
+                    </svg>
+                </span>
+                LINK SCANNER
             </div>
-            <div class="flex justify-between py-1 border-b border-slate-800">
-              <span class="text-slate-400">Harmless / Undetected</span>
-              <span class="font-mono font-bold text-emerald-400">${vt.harmless} / ${vt.undetected}</span>
+
+            <div class="auth-heading">
+                <h2>Create your account</h2>
+                <p>Join Link Scanner and stay protected</p>
             </div>
-            <div class="flex justify-between py-1">
-              <span class="text-slate-400">Total Engines</span>
-              <span class="font-mono font-bold text-white">${vt.totalEngines}</span>
-            </div>
-            ${vt.permalink ? `<div class="pt-2"><a href="${vt.permalink}" target="_blank" class="text-xs text-indigo-400 hover:underline flex items-center gap-1">View on VirusTotal <i data-lucide="external-link" class="w-3 h-3"></i></a></div>` : ''}
-          </div>
-        `;
-      }
 
-      // URL Analysis Features Card
-      const urlAnalysisCard = document.getElementById('url-analysis-card');
-      if (data.urlAnalysis) {
-        urlAnalysisCard.classList.remove('hidden');
-        const ua = data.urlAnalysis;
-        document.getElementById('url-features-list').innerHTML = `
-          <div class="p-2.5 bg-slate-950/60 border border-slate-800 rounded-lg">
-            <span class="text-[10px] text-slate-500 uppercase font-semibold">Hostname</span>
-            <p class="text-xs font-mono text-white truncate">${escapeHtml(ua.hostname)}</p>
-          </div>
-          <div class="p-2.5 bg-slate-950/60 border border-slate-800 rounded-lg">
-            <span class="text-[10px] text-slate-500 uppercase font-semibold">Host Type</span>
-            <p class="text-xs font-mono text-white uppercase">${ua.hostType}</p>
-          </div>
-          <div class="p-2.5 bg-slate-950/60 border border-slate-800 rounded-lg">
-            <span class="text-[10px] text-slate-500 uppercase font-semibold">Protocol</span>
-            <p class="text-xs font-mono text-white">${ua.usesHttps ? 'HTTPS (Secure)' : 'HTTP (Plain)'}</p>
-          </div>
-          <div class="p-2.5 bg-slate-950/60 border border-slate-800 rounded-lg">
-            <span class="text-[10px] text-slate-500 uppercase font-semibold">Port</span>
-            <p class="text-xs font-mono text-white">${ua.port}</p>
-          </div>
-          <div class="p-2.5 bg-slate-950/60 border border-slate-800 rounded-lg">
-            <span class="text-[10px] text-slate-500 uppercase font-semibold">Link Shortener</span>
-            <p class="text-xs font-mono ${ua.isShortener ? 'text-amber-400 font-bold' : 'text-slate-300'}">${ua.isShortener ? 'Yes (Shortened)' : 'No'}</p>
-          </div>
-          <div class="p-2.5 bg-slate-950/60 border border-slate-800 rounded-lg">
-            <span class="text-[10px] text-slate-500 uppercase font-semibold">Suspicious TLD</span>
-            <p class="text-xs font-mono ${ua.suspiciousTld ? 'text-amber-400 font-bold' : 'text-slate-300'}">${ua.suspiciousTld ? 'Yes' : 'No'}</p>
-          </div>
-        `;
-      } else {
-        urlAnalysisCard.classList.add('hidden');
-      }
+            <form class="auth-form" id="registerForm">
 
-      // Recommendations
-      const recsList = document.getElementById('recommendations-list');
-      recsList.innerHTML = data.recommendations.map(r => `
-        <li class="flex items-start gap-2">
-          <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5"></i>
-          <span>${escapeHtml(r)}</span>
-        </li>
-      `).join('');
+                <div class="field">
+                    <label for="registerName">Full name</label>
+                    <input
+                        type="text"
+                        id="registerName"
+                        placeholder="Enter your name"
+                        required
+                    >
+                </div>
 
-      container.scrollIntoView({ behavior: 'smooth' });
-      lucide.createIcons();
-    }
+                <div class="field">
+                    <label for="registerEmail">Email</label>
+                    <input
+                        type="email"
+                        id="registerEmail"
+                        placeholder="Enter your email"
+                        required
+                    >
+                </div>
 
-    function getScoreTextColor(score) {
-      if (score >= 76) return 'text-red-400';
-      if (score >= 51) return 'text-orange-400';
-      if (score >= 21) return 'text-amber-400';
-      return 'text-emerald-400';
-    }
+                <div class="field">
+                    <label for="registerPassword">Password</label>
+                    <input
+                        type="password"
+                        id="registerPassword"
+                        placeholder="Create a password"
+                        required
+                    >
+                </div>
 
-    function getSeverityColor(sev) {
-      switch (sev) {
-        case 'critical': return 'bg-red-500/20 text-red-400 border border-red-500/30';
-        case 'high': return 'bg-orange-500/20 text-orange-400 border border-orange-500/30';
-        case 'medium': return 'bg-amber-500/20 text-amber-400 border border-amber-500/30';
-        case 'low': return 'bg-blue-500/20 text-blue-400 border border-blue-500/30';
-        default: return 'bg-slate-800 text-slate-300 border border-slate-700';
-      }
-    }
+                <div class="field">
+                    <label for="confirmPassword">Confirm password</label>
+                    <input
+                        type="password"
+                        id="confirmPassword"
+                        placeholder="Confirm your password"
+                        required
+                    >
+                </div>
 
-    function copyResultsJson() {
-      if (!currentResultData) return;
-      navigator.clipboard.writeText(JSON.stringify(currentResultData, null, 2));
-      alert('Scan results JSON copied to clipboard!');
-    }
-  </script>
-</body>
+                <button class="btn btn-primary btn-block" type="submit">
+                    Create account
+                </button>
+
+                <p class="auth-switch">
+                    Already have an account?
+                    <button type="button" data-nav="login">
+                        Sign in
+                    </button>
+                </p>
+
+                <p class="auth-status" id="registerStatus" hidden></p>
+
+            </form>
+
+        </div>
+
+    </main>
+</section>
+      <script src="code.js"></script>
+    </body>
 </html>

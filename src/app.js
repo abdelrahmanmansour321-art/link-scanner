@@ -6,6 +6,7 @@ const cors = require('cors');
 
 const scanRoutes = require('./routes/scanRoutes');
 const authRoutes = require('./routes/authRoutes');
+const contactRoutes = require('./routes/contactRoutes');
 const { healthCheck } = require('./controllers/scanController');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
@@ -28,6 +29,8 @@ app.get('/health', healthCheck);
 app.use(express.static('public'));
 
 app.use('/api/auth', authRoutes);
+
+app.use('/api/contact', contactRoutes);
 
 app.use('/api', scanRoutes);
 
