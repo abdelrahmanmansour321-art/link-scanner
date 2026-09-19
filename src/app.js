@@ -1,5 +1,6 @@
 'use strict';
 
+const path = require('path');
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
@@ -7,36 +8,53 @@ const cors = require('cors');
 const scanRoutes = require('./routes/scanRoutes');
 const authRoutes = require('./routes/authRoutes');
 const contactRoutes = require('./routes/contactRoutes');
+
 const { healthCheck } = require('./controllers/scanController');
-const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
+const {
+  errorHandler,
+  notFoundHandler,
+} = require('./middleware/errorHandler');
 
 function createApp() {
   const app = express();
 
-app.use(helmet());
+  // Security headers
+  app.use(helmet());
 
-const corsOrigin = process.env.CORS_ORIGIN || '*';
-app.use(cors({
-    origin: corsOrigin === '*' ? true : corsOrigin.split(',').map((o) => o.trim()),
-}));
+  // CORS
+  const corsOrigin = process.env.CORS_ORIGIN || '*';
 
-app.use(express.json({ limit: '10kb' }));
+  app.use(
+    cors({
+      origin:
+        corsOrigin === '*'
+          ? true
+          : corsOrigin.split(',').map((o) => o.trim()),
+    })
+  );
 
-app.disable('x-powered-by');
+  // Request body parsing
+  app.use(express.json({ limit: '10kb' }));
 
-app.get('/health', healthCheck);
+  // Hide Express fingerprint
+  app.disable('x-powered-by');
 
-app.use(express.static('public'));
+  // Health check
+  app.get('/health', healthCheck);
 
-app.use('/api/auth', authRoutes);
+  // Serve frontend static files
+  app.use(express.static(path.join(__dirname, '../public')));
 
-app.use('/api/contact', contactRoutes);
+  // API routes
+  app.use('/api/auth', authRoutes);
+  app.use('/api/contact', contactRoutes);
+  app.use('/api', scanRoutes);
 
-app.use('/api', scanRoutes);
+  // 404 handler
+  app.use(notFoundHandler);
 
-app.use(notFoundHandler);
-
-app.use(errorHandler);
+  // Global error handler
+  app.use(errorHandler);
 
   return app;
 }
